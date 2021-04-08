@@ -134,7 +134,8 @@ defmodule Assent.Strategy.OAuth2 do
          {:ok, code}           <- fetch_code_param(params),
          {:ok, redirect_uri}   <- Config.fetch(config, :redirect_uri),
          :ok                   <- maybe_check_state(session_params, params),
-         {:ok, token}          <- grant_access_token(config, "authorization_code", code: code, redirect_uri: redirect_uri) do
+         {:ok, token}          <- grant_access_token(config, "authorization_code", code: code, redirect_uri: redirect_uri),
+         token                 <- maybe_add_user_callback_params(config, token, params) do
 
       fetch_user_with_strategy(config, token, strategy)
     end
@@ -267,6 +268,11 @@ defmodule Assent.Strategy.OAuth2 do
   defp process_response({:ok, %HTTPResponse{} = response}), do: {:error, RequestError.unexpected(response)}
   defp process_response({:error, %HTTPResponse{} = response}), do: {:error, RequestError.invalid(response)}
   defp process_response({:error, error}), do: {:error, error}
+
+  defp maybe_add_user_callback_params(config, token, %{"provider" => "apple", "user" => user}) do
+    Map.put(token, "user", Config.json_library(config).decode!(user))
+  end
+  defp maybe_add_user_callback_params(_config, token, _params), do: token
 
   defp fetch_user_with_strategy(config, token, strategy) do
     config
